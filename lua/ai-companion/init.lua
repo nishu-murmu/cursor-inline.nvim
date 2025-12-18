@@ -1,33 +1,45 @@
 local M = {}
+local api = vim.api
 local config = require("ai-companion.config")
-local inputs = require("ai-companion.inputs")
-local layouts = require("ai-companion.layouts")
+local commandBuf = require("ai-companion.components.command")
+local input_prompt_buf = require("ai-companion.components.input-prompt")
+
+local ns = api.nvim_create_namespace("key-listener")
 
 M.setup = function(user_config)
   vim.tbl_deep_extend("force", config, user_config)
 end
 
-if config.api_key == "" or config.api_key == nil then
-  if os.getenv("OPENAI_API_KEY") == "" or os.getenv("OPENAI_API_KEY") == nil then
-    inputs.api_key_input:mount()
-  else
-    config.api_key = os.getenv("OPENAI_API_KEY")
-  end
-end
-
-vim.api.nvim_create_user_command("Companion", function(opts)
-  local args = opts.args
-  if args == "chat" then
-    layouts.gpt_prompt_layout:mount()
-    vim.api.nvim_set_current_win(inputs.user_prompt_popup.winid)
-    vim.api.nvim_win_set_cursor(inputs.user_prompt_popup.winid, { 1, 2 })
-  end
-end, {
-  nargs = 1,
-  desc = "AI Companion commands.",
-  complete = function()
-    return { "chat", "review" }
+api.nvim_create_autocmd("ModeChanged", {
+  pattern = "n:[vV\22]",
+  callback = function()
+    commandBuf.create_command_buf()
   end,
 })
+
+api.nvim_create_autocmd("ModeChanged", {
+  pattern = "[vV\22]:n",
+  callback = commandBuf.close_command_buf,
+})
+
+
+api.nvim_create_autocmd("CursorMoved", {
+  callback = function()
+    if vim.fn.mode():match("[vV\22]") then
+      commandBuf.move_floating_buf()
+    end
+  end,
+})
+
+vim.on_key(function(key)
+  if key == "\v" then
+    commandBuf.close_command_buf()
+    input_prompt_buf.create_input_prompt_buf()
+  end
+  if key == "\r" and input_prompt_buf.is_current_buffer() then
+    P(input_prompt_buf.get_input_prompt_text_content())
+    input_prompt_buf.close_input_prompt_buf()
+  end
+end, ns)
 
 return M
