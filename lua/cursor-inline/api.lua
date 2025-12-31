@@ -1,11 +1,11 @@
 local M = {}
 
 local api = vim.api
-local prompts = require("ai-companion.prompts")
-local ui = require("ai-companion.ui")
-local config = require("ai-companion.config")
-local state = require("ai-companion.state")
-local utils = require("ai-companion.utils")
+local prompts = require("cursor-inline.prompts")
+local ui = require("cursor-inline.ui")
+local config = require("cursor-inline.config")
+local state = require("cursor-inline.state")
+local utils = require("cursor-inline.utils")
 local highlight = state.highlight
 
 local function insert_generated_code(lines)
@@ -17,9 +17,10 @@ local function insert_generated_code(lines)
 end
 
 local function get_visual_range()
-  local bufnr = utils.get_bufnr()
-  local start_row = api.nvim_buf_get_mark(bufnr, "<")[1]
-  local end_row = api.nvim_buf_get_mark(bufnr, ">")[1]
+  local bufnr = 0
+  local start_row, end_row = api.nvim_buf_get_mark(bufnr, "<")[1], api.nvim_buf_get_mark(bufnr, ">")[1]
+  local mark_bufnr = api.nvim_buf_get_mark(bufnr, "<")[2]
+  if mark_bufnr ~= bufnr then return nil, nil end
   return start_row - 1, end_row - 1
 end
 
@@ -27,7 +28,9 @@ local function highlight_old_code()
   local bufnr = utils.get_bufnr()
   local ns = highlight.old_code.ns
   api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
-  highlight.old_code.start_row, highlight.old_code.end_row = get_visual_range()
+  local sr, er = get_visual_range()
+  highlight.old_code.start_row = sr
+  highlight.old_code.end_row = er
   api.nvim_set_hl(0, highlight.old_code.hl_group, { bg = "#ea4859", blend = 80 })
   highlight.old_code.id = api.nvim_buf_set_extmark(bufnr, ns, highlight.old_code.start_row, 0, {
     end_row = highlight.old_code.end_row + 1,
@@ -61,7 +64,6 @@ local function reset_states()
   highlight.old_code.start_row, highlight.old_code.end_row, highlight.old_code.id = nil, nil, nil
   highlight.new_code.ns = api.nvim_create_namespace("NewCodeHighlight")
   highlight.old_code.ns = api.nvim_create_namespace("OldCodeHighlight")
-  vim.cmd.stopinsert()
 end
 
 local function open_helper_commands_ui()
@@ -124,6 +126,7 @@ local function run_curl_command(payload, api_key, url)
       highlight_new_inserted_code()
       highlight_old_code()
       open_helper_commands_ui()
+      vim.cmd("stopinsert")
     end)
   end)
 end

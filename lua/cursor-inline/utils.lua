@@ -1,6 +1,6 @@
 local M = {}
 local api = vim.api
-local state = require("ai-companion.state")
+local state = require("cursor-inline.state")
 local highlight = state.highlight
 
 function M.get_visual_selection()

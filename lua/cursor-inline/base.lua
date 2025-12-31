@@ -1,8 +1,8 @@
 local M = {}
 
-local ui = require("ai-companion.ui")
-local core_api = require("ai-companion.api")
-local config = require("ai-companion.config")
+local ui = require("cursor-inline.ui")
+local core_api = require("cursor-inline.api")
+local config = require("cursor-inline.config")
 
 local function open_input_callback()
   ui.close_inline_command()

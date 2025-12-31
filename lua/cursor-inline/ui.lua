@@ -1,8 +1,8 @@
 local M = {}
 
 local api = vim.api
-local config = require("ai-companion.config")
-local state = require("ai-companion.state")
+local config = require("cursor-inline.config")
+local state = require("cursor-inline.state")
 
 local bufnr, win_id
 local input_overridden
@@ -45,7 +45,6 @@ local function override_vim_input()
       on_confirm(nil)
       vim.cmd("stopinsert")
     end, { buffer = buf })
-
     vim.cmd("startinsert")
   end
 end
