@@ -2,7 +2,6 @@ local M = {}
 
 local api = vim.api
 local config = require("cursor-inline.config")
-local state = require("cursor-inline.state")
 
 local bufnr, win_id
 local input_overridden
@@ -16,7 +15,7 @@ local function override_vim_input()
     local default = opts.default or ""
     local buf = api.nvim_create_buf(false, true)
     api.nvim_buf_set_lines(buf, 0, -1, false, { default })
-    api.nvim_buf_set_option(buf, "modifiable", true)
+    vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 
     local win_opts = {
       relative = "cursor",
@@ -86,14 +85,12 @@ function M.close_inline_command()
   win_id, bufnr = nil, nil
 end
 
-function M.open_post_response_commands(row, lines, width, zindex)
-  bufnr = api.nvim_create_buf(false, true)
-  api.nvim_buf_set_lines(bufnr, 0, -1, false, { lines })
-
-  local win = api.nvim_open_win(bufnr, false, {
-    relative = "win",
+function M.open_post_response_commands(row, lines, width, zindex, existing_bufnr)
+  local buf = existing_bufnr or api.nvim_create_buf(false, true)
+  api.nvim_buf_set_lines(buf, 0, -1, false, { lines })
+  local win = api.nvim_open_win(buf, false, {
+    relative = "editor",
     row = row,
-    win = 0,
     col = vim.o.columns - width,
     width = width,
     height = 1,
@@ -102,8 +99,15 @@ function M.open_post_response_commands(row, lines, width, zindex)
     focusable = false,
     noautocmd = true,
   })
-  vim.api.nvim_win_set_option(win, 'winhl', 'Normal:Normal')
-  return win
+  local ns = api.nvim_create_namespace('')
+  api.nvim_win_set_hl_ns(win, ns)
+  return win, buf
+end
+
+function M.close_post_response_commands(win)
+  if win and api.nvim_win_is_valid(win) then
+    api.nvim_win_close(win, true)
+  end
 end
 
 function M.setup()

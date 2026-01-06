@@ -29,6 +29,8 @@ M.setup = function()
     callback = function()
       if vim.fn.mode():match("n") then
         local old_sr, old_er = core_api.get_old_code_region()
+        local new_sr, new_er = core_api.get_new_code_region()
+
         if old_er == nil and old_sr == nil then return end
         local cursor_pos = api.nvim_win_get_cursor(0)[1]
         if old_sr == cursor_pos then
@@ -39,6 +41,20 @@ M.setup = function()
         if old_er == cursor_pos then
           vim.schedule(function()
             api.nvim_win_set_cursor(0, { old_sr - 1, 0 })
+          end)
+        end
+
+        -- Update helper visibility based on cursor position
+        local in_new_code = cursor_pos >= new_sr + 1 and cursor_pos <= new_er + 1
+        local helpers_visible = state.wins.accept ~= nil or state.wins.deny ~= nil
+        
+        if in_new_code and not helpers_visible then
+          vim.schedule(function()
+            utils.open_helper_commands_ui()
+          end)
+        elseif not in_new_code and helpers_visible then
+          vim.schedule(function()
+            utils.close_helper_commands_ui()
           end)
         end
       end
@@ -57,7 +73,7 @@ M.setup = function()
           bg = "#ea4859",
           blend = 80
         })
-        api.nvim_buf_set_extmark(bufnr, ns_new_code, highlight.new_code.start_row, 0, {
+        api.nvim_buf_set_extmark(bufnr or 0, ns_new_code, highlight.new_code.start_row, 0, {
           end_row = highlight.new_code.end_row - 1,
           hl_group = highlight.new_code.hl_group,
           hl_eol = true,
@@ -68,7 +84,7 @@ M.setup = function()
           bg = "#199f5a",
           blend = 80
         })
-        api.nvim_buf_set_extmark(bufnr, ns_old_code, highlight.old_code.start_row, 0, {
+        api.nvim_buf_set_extmark(bufnr or 0, ns_old_code, highlight.old_code.start_row, 0, {
           end_row = highlight.old_code.end_row + 1,
           hl_group = highlight.old_code.hl_group,
           hl_eol = true,

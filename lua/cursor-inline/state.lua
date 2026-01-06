@@ -21,6 +21,10 @@ local M = {
     accept = nil,
     deny = nil
   },
+  bufs = {
+    accept = nil,
+    deny = nil
+  },
   selected_text = "",
   main_bufnr = nil,
 }

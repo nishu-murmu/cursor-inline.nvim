@@ -2,7 +2,6 @@ local M = {}
 
 local api = vim.api
 local prompts = require("cursor-inline.prompts")
-local ui = require("cursor-inline.ui")
 local config = require("cursor-inline.config")
 local state = require("cursor-inline.state")
 local utils = require("cursor-inline.utils")
@@ -18,9 +17,11 @@ end
 
 local function get_visual_range()
   local bufnr = 0
-  local start_row, end_row = api.nvim_buf_get_mark(bufnr, "<")[1], api.nvim_buf_get_mark(bufnr, ">")[1]
-  local mark_bufnr = api.nvim_buf_get_mark(bufnr, "<")[2]
-  if mark_bufnr ~= bufnr then return nil, nil end
+  local start_mark = api.nvim_buf_get_mark(bufnr, "<")
+  local end_mark = api.nvim_buf_get_mark(bufnr, ">")
+  local start_row, start_bufnr = start_mark[1], start_mark[2]
+  local end_row = end_mark[1]
+  if start_bufnr ~= bufnr then return nil, nil end
   return start_row - 1, end_row - 1
 end
 
@@ -46,7 +47,7 @@ local function highlight_new_inserted_code()
   highlight.new_code.end_row = api.nvim_buf_get_mark(bufnr, "<")[1]
   local start_row = highlight.new_code.start_row
   api.nvim_set_hl(0, highlight.new_code.hl_group, { bg = "#199f5a", blend = 80 })
-  highlight.new_code.id = api.nvim_buf_set_extmark(bufnr, ns, start_row, 0, {
+  highlight.new_code.id = api.nvim_buf_set_extmark(bufnr, ns, start_row or 0, 0, {
     end_row = highlight.new_code.end_row - 1,
     hl_group = highlight.new_code.hl_group,
     hl_eol = true,
@@ -64,18 +65,14 @@ local function reset_states()
   highlight.old_code.start_row, highlight.old_code.end_row, highlight.old_code.id = nil, nil, nil
   highlight.new_code.ns = api.nvim_create_namespace("NewCodeHighlight")
   highlight.old_code.ns = api.nvim_create_namespace("OldCodeHighlight")
-end
-
-local function open_helper_commands_ui()
-  local _, old_er = M.get_old_code_region()
-  local accept_text = config.mappings.accept_response or ""
-  local decline_text = config.mappings.deny_response or ""
-  local accept_response = "Accept Edit (" .. accept_text .. ")"
-  local decline_response = "Decline Edit (" .. decline_text .. ")"
-  if old_er then
-    state.wins.accept = ui.open_post_response_commands(old_er, accept_response, 48, 10)
-    state.wins.deny = ui.open_post_response_commands(old_er, decline_response, 24, 20)
-  end
+  state.wins = {
+    deny = nil,
+    accept = nil
+  }
+  state.bufs = {
+    deny = nil,
+    accept = nil
+  }
 end
 
 local function get_payload(input)
@@ -87,7 +84,7 @@ local function get_payload(input)
     model = model,
     input = {
       { role = "system", content = prompts.system_prompt },
-      { role = "user", content = prompt_text },
+      { role = "user",   content = prompt_text },
     },
   })
   return payload
@@ -123,9 +120,9 @@ local function run_curl_command(payload, api_key, url)
     table.remove(lines, #lines)
     vim.schedule(function()
       insert_generated_code(lines)
-      highlight_new_inserted_code()
       highlight_old_code()
-      open_helper_commands_ui()
+      highlight_new_inserted_code()
+      utils.open_helper_commands_ui()
       vim.cmd("stopinsert")
     end)
   end)
@@ -158,8 +155,7 @@ function M.accept_api_response()
   if new_sr and new_er and bufnr then
     api.nvim_buf_set_lines(bufnr, new_sr, new_er, false, {})
   end
-  if state.wins.accept then api.nvim_win_close(state.wins.accept, true) end
-  if state.wins.deny then api.nvim_win_close(state.wins.deny, true) end
+  utils.close_helper_commands_ui()
   reset_states()
 end
 
@@ -169,8 +165,7 @@ function M.reject_api_response()
   if new_sr and new_er and bufnr then
     api.nvim_buf_set_lines(bufnr, new_sr, new_er, false, {})
   end
-  if state.wins.accept then api.nvim_win_close(state.wins.accept, true) end
-  if state.wins.deny then api.nvim_win_close(state.wins.deny, true) end
+  utils.close_helper_commands_ui()
   reset_states()
 end
 
